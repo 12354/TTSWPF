@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -69,28 +68,23 @@ namespace TTSWPF
                 Modifiers = modifier,
                 Hotkey = key
             };
+            RefreshList();
             File.WriteAllText("hotkeys.json",JsonConvert.SerializeObject(_hotKeys.Values.ToList()));
             MessageBox.Show("Hotkeys geadded yo");
         }
 
+        private void RefreshList()
+        {
+            hotkeyList.Clear();
+            foreach (var hotkeyTts in _hotKeys)
+            {
+                hotkeyList.Text += $"{hotkeyTts.Value.Modifiers} {hotkeyTts.Key} : {hotkeyTts.Value.Text}\n";
+            }
+        }
+
         private void Button_Click_1(object sender, RoutedEventArgs e)
         {
-            if (File.Exists("hotkeys.json"))
-            {
-                var hotkeys =JsonConvert.DeserializeObject< List<HotkeyTTS>>(File.ReadAllText("hotkeys.json"));
-                foreach (var hotkeyTts in hotkeys)
-                {
-                    var key = new HotKey(
-                        hotkeyTts.Modifiers,
-                        hotkeyTts.Key,
-                        this,
-                        hotKey => speaker.SpeakAsync(hotkeyTts.Text)
-                    );
-                    hotkeyTts.Hotkey = key;
-                    _hotKeys[hotkeyTts.Key] = hotkeyTts;
-                }
-            }
-            MessageBox.Show("Hotkeys geladen du pisser");
+          
         }
         private void PlayBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
@@ -129,11 +123,12 @@ namespace TTSWPF
                     _hotKeys[hotkeyTts.Key] = hotkeyTts;
                 }
             }
+            RefreshList();
         }
 
         private void BringToFront()
         {
-            if (this.IsActive)
+            if (IsActive)
             {
                 speaker.SpeakAsync(playBox.Text);
                 playBox.Clear();
@@ -143,7 +138,7 @@ namespace TTSWPF
                 return;
             }
             WindowHelper.SaveForeGround();
-            this.Activate();
+            Activate();
             playBox.Focus();
             playBox.Clear();
         }
@@ -167,11 +162,11 @@ namespace TTSWPF
 
         const int SW_RESTORE = 9;
 
-        [System.Runtime.InteropServices.DllImport("User32.dll")]
+        [DllImport("User32.dll")]
         private static extern bool SetForegroundWindow(IntPtr handle);
-        [System.Runtime.InteropServices.DllImport("User32.dll")]
+        [DllImport("User32.dll")]
         private static extern bool ShowWindow(IntPtr handle, int nCmdShow);
-        [System.Runtime.InteropServices.DllImport("User32.dll")]
+        [DllImport("User32.dll")]
         private static extern bool IsIconic(IntPtr handle);
 
         [DllImport("user32.dll")]
