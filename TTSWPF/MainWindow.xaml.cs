@@ -1,22 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Speech.Synthesis;
-using System.Text;
-using System.Threading.Tasks;
+using System.Threading;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
 using mrousavy;
 using Newtonsoft.Json;
-
 namespace TTSWPF
 {
     public class HotkeyTTS
@@ -24,14 +17,12 @@ namespace TTSWPF
         public Key Key { get; set; }
         public string Text { get; set; }
         public ModifierKeys Modifiers { get; set; }
+        [JsonIgnore]
+        public HotKey Hotkey { get; set; }
     }
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
-        private List<HotkeyTTS> _hotkeys = new List<HotkeyTTS>();
-
+        private HotKey focus;
         public MainWindow()
         {
             InitializeComponent();
@@ -41,16 +32,16 @@ namespace TTSWPF
             speaker.Volume = 100;
             speaker.SelectVoiceByHints(VoiceGender.Female, VoiceAge.Adult);
             
+
         }
         private Key k;
         private SpeechSynthesizer speaker;
-
         private void HotkeyKey_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             k = e.Key;
             hotkeyKey.Text = e.Key.ToString();
         }
-        List<HotKey> hk = new List<HotKey>();
+        private Dictionary<Key,HotkeyTTS> _hotKeys = new Dictionary<Key, HotkeyTTS>();
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             var modifier = ModifierKeys.None;
@@ -65,29 +56,29 @@ namespace TTSWPF
             }
 
             var text = hotkeyText.Text;
-            var key = new HotKey(
-                modifier, 
-                k,
-                this, 
-                hotKey => speaker.SpeakAsync(text)
-            );
-            hk.Add(key);
-            _hotkeys.Add(new HotkeyTTS()
+            if (_hotKeys.TryGetValue(k, out var tts))
+            {
+                tts.Hotkey.Dispose();
+            }
+            var key = new HotKey(modifier, k,this, hotKey => speaker.SpeakAsync(text));
+           
+            
+            _hotKeys[k] = new HotkeyTTS()
             {
                 Key = k,Text = text,
-                Modifiers = modifier
-            });
-            File.WriteAllText("hotkeys.json",JsonConvert.SerializeObject(_hotkeys));
+                Modifiers = modifier,
+                Hotkey = key
+            };
+            File.WriteAllText("hotkeys.json",JsonConvert.SerializeObject(_hotKeys.Values.ToList()));
             MessageBox.Show("Hotkeys geadded yo");
-            
         }
 
         private void Button_Click_1(object sender, RoutedEventArgs e)
         {
             if (File.Exists("hotkeys.json"))
             {
-                _hotkeys = JsonConvert.DeserializeObject< List<HotkeyTTS>>(File.ReadAllText("hotkeys.json"));
-                foreach (var hotkeyTts in _hotkeys)
+                var hotkeys =JsonConvert.DeserializeObject< List<HotkeyTTS>>(File.ReadAllText("hotkeys.json"));
+                foreach (var hotkeyTts in hotkeys)
                 {
                     var key = new HotKey(
                         hotkeyTts.Modifiers,
@@ -95,26 +86,102 @@ namespace TTSWPF
                         this,
                         hotKey => speaker.SpeakAsync(hotkeyTts.Text)
                     );
-                    hk.Add(key);
+                    hotkeyTts.Hotkey = key;
+                    _hotKeys[hotkeyTts.Key] = hotkeyTts;
                 }
             }
-
             MessageBox.Show("Hotkeys geladen du pisser");
         }
-
-        private void PlayBox_TextChanged(object sender, TextChangedEventArgs e)
-        {
-
-        }
-
         private void PlayBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             if (e.Key == Key.B && Keyboard.Modifiers == ModifierKeys.Control)
             {
                 speaker.SpeakAsync(playBox.Text);
                 playBox.Clear();
+            }
+
+            if (e.Key == Key.Return)
+            {
+                speaker.SpeakAsync(playBox.Text);
+                playBox.Clear();
+                WindowHelper.BringProcessToFront();
+                Thread.Sleep(20);
+                WindowHelper.BringProcessToFront();
                 
             }
+        }
+
+        private void Window_Loaded(object sender, RoutedEventArgs e)
+        {
+            focus = new HotKey(ModifierKeys.Control,Key.Return,this,key => BringToFront());
+            if (File.Exists("hotkeys.json"))
+            {
+                var hotkeys =JsonConvert.DeserializeObject< List<HotkeyTTS>>(File.ReadAllText("hotkeys.json"));
+                foreach (var hotkeyTts in hotkeys)
+                {
+                    var key = new HotKey(
+                        hotkeyTts.Modifiers,
+                        hotkeyTts.Key,
+                        this,
+                        hotKey => speaker.SpeakAsync(hotkeyTts.Text)
+                    );
+                    hotkeyTts.Hotkey = key;
+                    _hotKeys[hotkeyTts.Key] = hotkeyTts;
+                }
+            }
+        }
+
+        private void BringToFront()
+        {
+            if (this.IsActive)
+            {
+                speaker.SpeakAsync(playBox.Text);
+                playBox.Clear();
+                WindowHelper.BringProcessToFront();
+                Thread.Sleep(20);
+                WindowHelper.BringProcessToFront();
+                return;
+            }
+            WindowHelper.SaveForeGround();
+            this.Activate();
+            playBox.Focus();
+            playBox.Clear();
+        }
+    }
+    public static class WindowHelper
+    {
+        public static void BringProcessToFront()
+        {
+            IntPtr handle = csgo;
+            if (csgo == IntPtr.Zero)
+            {
+                return;
+            }
+            if (IsIconic(handle))
+            {
+                ShowWindow(handle, SW_RESTORE);
+            }
+
+            SetForegroundWindow(handle);
+        }
+
+        const int SW_RESTORE = 9;
+
+        [System.Runtime.InteropServices.DllImport("User32.dll")]
+        private static extern bool SetForegroundWindow(IntPtr handle);
+        [System.Runtime.InteropServices.DllImport("User32.dll")]
+        private static extern bool ShowWindow(IntPtr handle, int nCmdShow);
+        [System.Runtime.InteropServices.DllImport("User32.dll")]
+        private static extern bool IsIconic(IntPtr handle);
+
+        [DllImport("user32.dll")]
+        private static extern IntPtr GetForegroundWindow();
+
+        private static IntPtr csgo = IntPtr.Zero;
+        public static void SaveForeGround()
+        {
+
+            csgo = GetForegroundWindow();
         }
     }
 }
