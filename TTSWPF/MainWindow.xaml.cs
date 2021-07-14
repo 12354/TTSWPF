@@ -1,10 +1,15 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Speech.Synthesis;
 using System.Threading;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using CSCore;
+using CSCore.MediaFoundation;
+using CSCore.SoundOut;
 using mrousavy;
 using Newtonsoft.Json;
 
@@ -13,19 +18,28 @@ namespace TTSWPF
     public partial class MainWindow : Window
     {
         private readonly Dictionary<Key, HotkeyTTS> _hotKeys = new Dictionary<Key, HotkeyTTS>();
-        private readonly SpeechSynthesizer _speaker;
         private HotKey _focus;
         private Key _k;
+        private readonly List<WaveOutDevice> _outputDevices;
 
         public MainWindow()
         {
             InitializeComponent();
-            _speaker = new SpeechSynthesizer();
-            _speaker.SetOutputToDefaultAudioDevice();
-            _speaker.Rate = 1;
-            _speaker.Volume = 100;
-            _speaker.SelectVoiceByHints(VoiceGender.Female, VoiceAge.Adult);
+            if (File.Exists("output.txt"))
+            {
+                var devices = File.ReadAllLines("output.txt").Select(s => s.Substring(0,31));
+                var enumDevices = WaveOutDevice.EnumerateDevices().ToList();
+                _outputDevices = devices.Select(dev => enumDevices.FirstOrDefault(waveout =>
+                        waveout.Name.ToLowerInvariant().Contains(dev.ToLowerInvariant())))
+                    .Where(dev => dev != null).ToList();
+            }
+            else
+            {
+                MessageBox.Show("output.txt not found");
+                _outputDevices = new List<WaveOutDevice>();
+            }
         }
+        
 
         private void HotkeyKey_PreviewKeyDown(object sender, KeyEventArgs e)
         {
@@ -42,7 +56,7 @@ namespace TTSWPF
 
             var text = hotkeyText.Text;
             if (_hotKeys.TryGetValue(_k, out var tts)) tts.Hotkey.Dispose();
-            var key = new HotKey(modifier, _k, this, hotKey => _speaker.SpeakAsync(text));
+            var key = new HotKey(modifier, _k, this, hotKey => Speak(text));
 
 
             _hotKeys[_k] = new HotkeyTTS
@@ -63,16 +77,56 @@ namespace TTSWPF
                 hotkeyList.Text += $"{hotkeyTts.Value.Modifiers} {hotkeyTts.Key} : {hotkeyTts.Value.Text}\n";
         }
 
+        private void Speak(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+                return;
+            Task.Run(() =>
+            {
+                using (var speechEngine = new SpeechSynthesizer() {Rate = 1, Volume = 100})
+                {
+                    using (var stream = new MemoryStream())
+                    {
+                        speechEngine.SelectVoiceByHints(VoiceGender.Female, VoiceAge.Adult);
+                        speechEngine.SetOutputToWaveStream(stream);
+                        speechEngine.Speak(text);
+                        var data = stream.ToArray();
+                        foreach (var waveOutDevice in _outputDevices)
+                        {
+                            Task.Run(() =>
+                            {
+                                try
+                                {
+                                    using(var newStream = new MemoryStream(data))
+                                    using (var waveOut = new WaveOut {Device = waveOutDevice})
+                                    using (var waveSource = new MediaFoundationDecoder(newStream))
+                                    {
+                                        waveOut.Initialize(waveSource);
+                                        waveOut.Play();
+                                        waveOut.WaitForStopped();
+                                    }
+                                }
+                                catch
+                                {
+                                    // ignored
+                                }
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
         private void PlayBox_PreviewKeyDown(object sender, KeyEventArgs e)
         {
             switch (e.Key)
             {
                 case Key.B when Keyboard.Modifiers == ModifierKeys.Control:
-                    _speaker.SpeakAsync(playBox.Text);
+                    Speak(playBox.Text);
                     playBox.Clear();
                     break;
                 case Key.Return:
-                    _speaker.SpeakAsync(playBox.Text);
+                    Speak(playBox.Text);
                     playBox.Clear();
                     WindowHelper.BringProcessToFront();
                     Thread.Sleep(20);
@@ -93,7 +147,7 @@ namespace TTSWPF
                         modifierKeys: hotkeyTts.Modifiers,
                         key: hotkeyTts.Key,
                         window: this,
-                        onKeyAction: hotKey => _speaker.SpeakAsync(hotkeyTts.Text)
+                        onKeyAction: hotKey => Speak(hotkeyTts.Text)
                     );
                     hotkeyTts.Hotkey = key;
                     _hotKeys[hotkeyTts.Key] = hotkeyTts;
@@ -107,7 +161,7 @@ namespace TTSWPF
         {
             if (IsActive)
             {
-                _speaker.SpeakAsync(playBox.Text);
+                Speak(playBox.Text);
                 playBox.Clear();
                 WindowHelper.BringProcessToFront();
                 Thread.Sleep(20);
