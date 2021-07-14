@@ -1,38 +1,30 @@
-name: EZRep Build
-
-on:
-  push:
-    branches: master
-
+name: Build Web App
+ 
+on: [push]
+ 
 jobs:
   build:
+ 
     runs-on: windows-latest
-
+ 
     steps:
-    - uses: actions/checkout@v2
-    
-    - name: Setup MSBuild
-      uses: microsoft/setup-msbuild@v1
-
+    - uses: actions/checkout@v1
+      name: Checkout Code
+     
+    - name: Setup MSBuild Path
+      uses: warrenbuckley/Setup-MSBuild@v1
+       
     - name: Setup NuGet
       uses: NuGet/setup-nuget@v1.0.2
-      
-    - name: Navigate to Workspace
-      run: cd $GITHUB_WORKSPACE
-
-    - name: Create Build Directory
-      run: mkdir _build
-      
-    - name: Restore Packages
+     
+    - name: Restore NuGet Packages
       run: nuget restore TTSWPF.sln
-
-    - name: Build Solution
-      run: |
-        msbuild.exe TTSWPF.sln /nologo /nr:false /p:DeployOnBuild=true/p:DeleteExistingFiles=True /p:platform="Any CPU" /p:configuration="Release" /p:PublishUrl="../_build"
-        
-    - name: Upload artifact
+ 
+    - name: Build and Publish Web App
+      run: msbuild TTSWPF.sln /p:Configuration=Release /p:DeployOnBuild=true
+ 
+    - name: Upload Artifact
       uses: actions/upload-artifact@v1.0.0
       with:
-        name: Artifact
-        path: "./_build"        
-        
+        name: published_webapp
+        path: bin\Release\
