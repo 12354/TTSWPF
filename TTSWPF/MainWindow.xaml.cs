@@ -35,7 +35,8 @@ namespace TTSWPF
             }
             else
             {
-                MessageBox.Show("output.txt not found");
+                MessageBox.Show("output.txt not found. Check output.example.txt for an example.");
+                Environment.Exit(0);
                 _outputDevices = new List<WaveOutDevice>();
             }
         }
