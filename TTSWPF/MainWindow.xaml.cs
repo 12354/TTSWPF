@@ -139,6 +139,15 @@ namespace TTSWPF
         private void Window_Loaded(object sender, RoutedEventArgs e)
         {
             _focus = new HotKey(modifierKeys: ModifierKeys.Control, key: Key.Return, window: this, onKeyAction: key => BringToFront());
+            if (!File.Exists("hotkeys.json") && File.Exists("hotkeys.example.json"))
+            {
+                if (MessageBox.Show("hotkeys.json not found.\nDo you want to use the example hotkeys?",
+                    "Use example hotkeys?", MessageBoxButton.OKCancel) == MessageBoxResult.OK)
+                {
+                    File.Move("hotkeys.example.json", "hotkeys.json");
+                }
+            }
+
             if (File.Exists("hotkeys.json"))
             {
                 var hotkeys = JsonConvert.DeserializeObject<List<HotkeyTTS>>(File.ReadAllText("hotkeys.json"));
