@@ -28,3 +28,16 @@ jobs:
       with:
         name: published_webapp
         path: TTSWPF\bin\Release\
+        
+    - name: Build
+      shell: bash
+      run: |
+          # Pack files
+          # Pack to zip for Windows
+           7z a -tzip "TTSWPF.zip" "./TTSWPF\bin\Release\*"
+    - name: Publish
+      uses: softprops/action-gh-release@v1
+      with:
+       files: "TTSWPF.zip"
+      env:
+       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
