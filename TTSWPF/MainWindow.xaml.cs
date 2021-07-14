@@ -82,40 +82,54 @@ namespace TTSWPF
         {
             if (string.IsNullOrWhiteSpace(text))
                 return;
-            Task.Run(() =>
+            try
             {
-                using (var speechEngine = new SpeechSynthesizer() {Rate = 1, Volume = 100})
+                Task.Run(() =>
                 {
-                    using (var stream = new MemoryStream())
+                    try
                     {
-                        speechEngine.SelectVoiceByHints(VoiceGender.Female, VoiceAge.Adult);
-                        speechEngine.SetOutputToWaveStream(stream);
-                        speechEngine.Speak(text);
-                        var data = stream.ToArray();
-                        foreach (var waveOutDevice in _outputDevices)
+                        using (var speechEngine = new SpeechSynthesizer() {Rate = 1, Volume = 100})
                         {
-                            Task.Run(() =>
+                            using (var stream = new MemoryStream())
                             {
-                                try
+                                speechEngine.SelectVoiceByHints(VoiceGender.Female, VoiceAge.Adult);
+                                speechEngine.SetOutputToWaveStream(stream);
+                                speechEngine.Speak(text);
+                                var data = stream.ToArray();
+                                foreach (var waveOutDevice in _outputDevices)
                                 {
-                                    using(var newStream = new MemoryStream(data))
-                                    using (var waveOut = new WaveOut {Device = waveOutDevice})
-                                    using (var waveSource = new MediaFoundationDecoder(newStream))
+                                    Task.Run(() =>
                                     {
-                                        waveOut.Initialize(waveSource);
-                                        waveOut.Play();
-                                        waveOut.WaitForStopped();
-                                    }
+                                        try
+                                        {
+                                            using (var newStream = new MemoryStream(data))
+                                            using (var waveOut = new WaveOut {Device = waveOutDevice})
+                                            using (var waveSource = new MediaFoundationDecoder(newStream))
+                                            {
+                                                waveOut.Initialize(waveSource);
+                                                waveOut.Play();
+                                                waveOut.WaitForStopped();
+                                            }
+                                        }
+                                        catch
+                                        {
+                                            // ignored
+                                        }
+                                    });
                                 }
-                                catch
-                                {
-                                    // ignored
-                                }
-                            });
+                            }
                         }
                     }
-                }
-            });
+                    catch
+                    {
+
+                    }
+                });
+            }
+            catch
+            {
+
+            }
         }
 
         private void PlayBox_PreviewKeyDown(object sender, KeyEventArgs e)
