@@ -77,15 +77,21 @@ namespace TTSWPF
             foreach (var hotkeyTts in _hotKeys)
                 hotkeyList.Text += $"{hotkeyTts.Value.Modifiers} {hotkeyTts.Key} : {hotkeyTts.Value.Text}\n";
         }
-
+        private bool _isSpeaking = false;
+        private string _isSpeakingText = "";
         private void Speak(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return;
             try
             {
+                if(_isSpeaking && text == _isSpeakingText)
+                    return;
+
                 Task.Run(() =>
                 {
+                    _isSpeaking = true;
+                    _isSpeakingText = text;
                     try
                     {
                         using (var speechEngine = new SpeechSynthesizer() {Rate = 1, Volume = 100})
@@ -115,6 +121,7 @@ namespace TTSWPF
                                         {
                                             // ignored
                                         }
+                                        _isSpeaking = false;
                                     });
                                 }
                             }
@@ -124,6 +131,7 @@ namespace TTSWPF
                     {
 
                     }
+                    
                 });
             }
             catch
