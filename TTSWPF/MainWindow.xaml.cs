@@ -1,4 +1,4 @@
-﻿﻿using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -24,23 +24,32 @@ namespace TTSWPF
 
         public MainWindow()
         {
-            InitializeComponent();
-            if (File.Exists("output.txt"))
+            try
             {
-                var devices = File.ReadAllLines("output.txt").Select(s => s.Substring(0,31));
-                var enumDevices = WaveOutDevice.EnumerateDevices().ToList();
-                _outputDevices = devices.Select(dev => enumDevices.FirstOrDefault(waveout =>
-                        waveout.Name.ToLowerInvariant().Contains(dev.ToLowerInvariant())))
-                    .Where(dev => dev != null).ToList();
+
+                InitializeComponent();
+                if (File.Exists("output.txt"))
+                {
+                    var devices = File.ReadAllLines("output.txt").Select(s => s.Substring(0, 31));
+                    var enumDevices = WaveOutDevice.EnumerateDevices().ToList();
+                    _outputDevices = devices.Select(dev => enumDevices.FirstOrDefault(waveout =>
+                            waveout.Name.ToLowerInvariant().Contains(dev.ToLowerInvariant())))
+                        .Where(dev => dev != null).ToList();
+                }
+                else
+                {
+                    MessageBox.Show("output.txt not found. Check output.example.txt for an example.");
+                    Environment.Exit(0);
+                    _outputDevices = new List<WaveOutDevice>();
+                }
             }
-            else
+            catch (Exception ex)
             {
-                MessageBox.Show("output.txt not found. Check output.example.txt for an example.");
-                Environment.Exit(0);
-                _outputDevices = new List<WaveOutDevice>();
+                MessageBox.Show(ex.ToString());
             }
+
         }
-        
+
 
         private void HotkeyKey_PreviewKeyDown(object sender, KeyEventArgs e)
         {
@@ -62,7 +71,8 @@ namespace TTSWPF
 
             _hotKeys[_k] = new HotkeyTTS
             {
-                Key = _k, Text = text,
+                Key = _k,
+                Text = text,
                 Modifiers = modifier,
                 Hotkey = key
             };
@@ -85,7 +95,7 @@ namespace TTSWPF
                 return;
             try
             {
-                if(_isSpeaking && text == _isSpeakingText)
+                if (_isSpeaking && text == _isSpeakingText)
                     return;
 
                 Task.Run(() =>
@@ -94,7 +104,7 @@ namespace TTSWPF
                     _isSpeakingText = text;
                     try
                     {
-                        using (var speechEngine = new SpeechSynthesizer() {Rate = 1, Volume = 100})
+                        using (var speechEngine = new SpeechSynthesizer() { Rate = 1, Volume = 100 })
                         {
                             using (var stream = new MemoryStream())
                             {
@@ -109,7 +119,7 @@ namespace TTSWPF
                                         try
                                         {
                                             using (var newStream = new MemoryStream(data))
-                                            using (var waveOut = new WaveOut {Device = waveOutDevice})
+                                            using (var waveOut = new WaveOut { Device = waveOutDevice })
                                             using (var waveSource = new MediaFoundationDecoder(newStream))
                                             {
                                                 waveOut.Initialize(waveSource);
@@ -131,7 +141,7 @@ namespace TTSWPF
                     {
 
                     }
-                    
+
                 });
             }
             catch
@@ -175,14 +185,21 @@ namespace TTSWPF
                 var hotkeys = JsonConvert.DeserializeObject<List<HotkeyTTS>>(File.ReadAllText("hotkeys.json"));
                 foreach (var hotkeyTts in hotkeys)
                 {
-                    var key = new HotKey(
-                        modifierKeys: hotkeyTts.Modifiers,
-                        key: hotkeyTts.Key,
-                        window: this,
-                        onKeyAction: hotKey => Speak(hotkeyTts.Text)
-                    );
-                    hotkeyTts.Hotkey = key;
-                    _hotKeys[hotkeyTts.Key] = hotkeyTts;
+                    try
+                    {
+                        var key = new HotKey(
+                            modifierKeys: hotkeyTts.Modifiers,
+                            key: hotkeyTts.Key,
+                            window: this,
+                            onKeyAction: hotKey => Speak(hotkeyTts.Text)
+                        );
+                        hotkeyTts.Hotkey = key;
+                        _hotKeys[hotkeyTts.Key] = hotkeyTts;
+                    }
+                    catch
+                    {
+                    }
+
                 }
             }
 
