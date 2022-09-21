@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Speech.Synthesis;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,38 +11,76 @@ using System.Windows.Input;
 using CSCore;
 using CSCore.MediaFoundation;
 using CSCore.SoundOut;
+using HarmonyLib;
 using mrousavy;
 using Newtonsoft.Json;
 
 namespace TTSWPF
 {
+    [HarmonyPatch]
+    class Patch
+    {
+        public static int Override = -1;
+        static MethodBase TargetMethod()
+        {
+            return AccessTools.Method(AccessTools.TypeByName("System.Speech.Internal.ObjectTokens.SAPICategories"), "DefaultDeviceOut");
+        }
+        static void Postfix(ref int __result)
+        {
+            __result = Override;
+        }
+    }
+    public static class Extension
+    {
+        public static int IndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
+        {
+
+            var index = 0;
+            foreach (var item in source)
+            {
+                if (predicate.Invoke(item))
+                {
+                    return index;
+                }
+                index++;
+            }
+
+            return -1;
+        }
+    }
     public partial class MainWindow : Window
     {
         private readonly Dictionary<Key, HotkeyTTS> _hotKeys = new Dictionary<Key, HotkeyTTS>();
         private HotKey _focus;
         private Key _k;
-        private readonly List<WaveOutDevice> _outputDevices;
+        private readonly List<int> _outputDevices;
 
         public MainWindow()
         {
+
             try
             {
+                var speechEngine = new SpeechSynthesizer();
+
+                var harmony = new Harmony("com.company.project.product");
+                harmony.PatchAll();
 
                 InitializeComponent();
                 if (File.Exists("output.txt"))
                 {
                     var devices = File.ReadAllLines("output.txt").Select(s => s.Substring(0, 31));
                     var enumDevices = WaveOutDevice.EnumerateDevices().ToList();
-                    _outputDevices = devices.Select(dev => enumDevices.FirstOrDefault(waveout =>
+                    _outputDevices = devices.Select(dev => enumDevices.IndexOf(waveout =>
                             waveout.Name.ToLowerInvariant().Contains(dev.ToLowerInvariant())))
-                        .Where(dev => dev != null).ToList();
+                        .Where(dev => dev != -1).ToList();
                 }
                 else
                 {
                     MessageBox.Show("output.txt not found. Check output.example.txt for an example.");
                     Environment.Exit(0);
-                    _outputDevices = new List<WaveOutDevice>();
+                    _outputDevices = new List<int>();
                 }
+
             }
             catch (Exception ex)
             {
@@ -97,52 +136,15 @@ namespace TTSWPF
             {
                 if (_isSpeaking && text == _isSpeakingText)
                     return;
-
-                Task.Run(() =>
+                var list = new List<SpeechSynthesizer>();
+                foreach (var device in _outputDevices)
                 {
-                    _isSpeaking = true;
-                    _isSpeakingText = text;
-                    try
-                    {
-                        using (var speechEngine = new SpeechSynthesizer() { Rate = 1, Volume = 100 })
-                        {
-                            using (var stream = new MemoryStream())
-                            {
-                                speechEngine.SelectVoiceByHints(VoiceGender.Female, VoiceAge.Adult);
-                                speechEngine.SetOutputToWaveStream(stream);
-                                speechEngine.Speak(text);
-                                var data = stream.ToArray();
-                                foreach (var waveOutDevice in _outputDevices)
-                                {
-                                    Task.Run(() =>
-                                    {
-                                        try
-                                        {
-                                            using (var newStream = new MemoryStream(data))
-                                            using (var waveOut = new WaveOut { Device = waveOutDevice })
-                                            using (var waveSource = new MediaFoundationDecoder(newStream))
-                                            {
-                                                waveOut.Initialize(waveSource);
-                                                waveOut.Play();
-                                                waveOut.WaitForStopped();
-                                            }
-                                        }
-                                        catch
-                                        {
-                                            // ignored
-                                        }
-                                        _isSpeaking = false;
-                                    });
-                                }
-                            }
-                        }
-                    }
-                    catch
-                    {
-
-                    }
-
-                });
+                    var speechEngine = new SpeechSynthesizer();
+                    speechEngine.SelectVoiceByHints(VoiceGender.Female, VoiceAge.Adult);
+                    Patch.Override = device;
+                    speechEngine.SetOutputToDefaultAudioDevice();
+                    speechEngine.SpeakAsync(new Prompt(text, SynthesisTextFormat.Text));
+                }
             }
             catch
             {
