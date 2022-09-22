@@ -7,17 +7,36 @@
         mc:Ignorable="d"
         Title="MainWindow" Height="513.931" Width="686.279" Loaded="Window_Loaded">
     <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="1*" />
+            <ColumnDefinition Width="1*" />
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
 
-        <TextBox x:Name="playBox" HorizontalAlignment="Left" Height="89" Margin="10,10,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="663" PreviewKeyDown="PlayBox_PreviewKeyDown" Grid.ColumnSpan="2"/>
-        <Label Content="STRG+B = Play" HorizontalAlignment="Left" Margin="579,73,0,0" VerticalAlignment="Top"/>
-        <Label Content="Key:" HorizontalAlignment="Left" Margin="10,104,0,0" VerticalAlignment="Top"/>
-        <Label Content="Text" HorizontalAlignment="Left" Margin="10,135,0,0" VerticalAlignment="Top"/>
-        <TextBox x:Name="hotkeyKey" IsReadOnly="True" HorizontalAlignment="Left" Height="23" Margin="46,108,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120" PreviewKeyDown="HotkeyKey_PreviewKeyDown"/>
-        <TextBox x:Name="hotkeyText" HorizontalAlignment="Left" Height="23" Margin="46,135,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120"/>
-        <Button Content="Add hotkey" HorizontalAlignment="Left" Margin="257,108,0,0" VerticalAlignment="Top" Width="180" Height="50" Click="Button_Click"/>
-        <CheckBox x:Name="ctrl" Content="Ctrl" HorizontalAlignment="Left" Margin="191,110,0,0" VerticalAlignment="Top"/>
-        <CheckBox x:Name="alt" Content="Alt" HorizontalAlignment="Left" Margin="191,137,0,0" VerticalAlignment="Top"/>
-        <TextBox x:Name="hotkeyList" HorizontalAlignment="Left" Height="307" Margin="10,166,0,0" TextWrapping="Wrap" Text="&#xD;&#xA;" VerticalAlignment="Top" Width="663" Grid.ColumnSpan="2"/>
+            <RowDefinition Height="100*"/>
+            <RowDefinition Height="30*"/>
+            <RowDefinition Height="30*"/>
+            <RowDefinition Height="330*"/>
+
+        </Grid.RowDefinitions>
+        <TextBox Grid.Row="0" Grid.Column="0" x:Name="playBox" HorizontalAlignment="Left" Height="89" Margin="10,10,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="663" PreviewKeyDown="PlayBox_PreviewKeyDown" Grid.ColumnSpan="2"/>
+        <Label Grid.Row="0" Grid.Column="1" Content="STRG+B = Play" HorizontalAlignment="Left" Margin="236,73,0,0" VerticalAlignment="Top" />
+        <Label Content="Key:" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Grid.Row="1"/>
+        <Label Content="Text" HorizontalAlignment="Left" Margin="10,0,0,0" VerticalAlignment="Center" Grid.Row="2"/>
+        <TextBox x:Name="hotkeyKey" IsReadOnly="True" HorizontalAlignment="Left" Height="23" Margin="46,7,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120" PreviewKeyDown="HotkeyKey_PreviewKeyDown" Grid.Row="1"/>
+        <TextBox x:Name="hotkeyText" HorizontalAlignment="Left" Height="23" Margin="46,1,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="120" Grid.Row="2"/>
+        <Button Content="Add hotkey" HorizontalAlignment="Left" Margin="257,7,0,0" VerticalAlignment="Top" Width="180" Height="50" Click="Button_Click" Grid.ColumnSpan="2" Grid.Row="1" Grid.RowSpan="2"/>
+        <CheckBox x:Name="ctrl" Content="Ctrl" HorizontalAlignment="Left" Margin="191,0,0,0" VerticalAlignment="Center" Grid.Row="1"/>
+        <CheckBox x:Name="alt" Content="Alt" HorizontalAlignment="Left" Margin="191,3,0,0" VerticalAlignment="Top" Grid.Row="2" />
+        <TextBox Grid.Row="3" x:Name="hotkeyList" HorizontalAlignment="Stretch"  Margin="10,5,10,10" TextWrapping="Wrap" Text="&#xD;&#xA;" VerticalAlignment="Stretch" Grid.ColumnSpan="1" />
+        <ListBox x:Name="selectedOutputDevices" Grid.Row="3" VerticalAlignment="Stretch" HorizontalAlignment="Stretch" Grid.Column="1" Grid.ColumnSpan="1"  Margin="10,5,10,10" >
+        <ListBox.ItemTemplate>
+            <DataTemplate>
+                <CheckBox Unchecked="CheckBox_Checked" Checked="CheckBox_Checked"  IsChecked="{Binding IsSelected}" Content="{Binding}" />
+            </DataTemplate>
+        </ListBox.ItemTemplate>
+    </ListBox>
+
 
     </Grid>
 </Window>

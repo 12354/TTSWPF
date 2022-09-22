@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -9,6 +10,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using CSCore;
+using CSCore.CoreAudioAPI;
 using CSCore.MediaFoundation;
 using CSCore.SoundOut;
 using HarmonyLib;
@@ -32,6 +34,25 @@ namespace TTSWPF
     }
     public static class Extension
     {
+            public static string SafeSubstring(this string input, int startIndex, int length)
+    {
+        // Todo: Check that startIndex + length does not cause an arithmetic overflow
+        if (input.Length >= (startIndex + length))
+        {
+            return input.Substring(startIndex, length);
+        }
+        else
+        {
+            if (input.Length > startIndex)
+            {
+                return input.Substring(startIndex);
+            }
+            else
+            {
+                return string.Empty;
+            }
+        }
+    }
         public static int IndexOf<TSource>(this IEnumerable<TSource> source, Func<TSource, bool> predicate)
         {
 
@@ -48,12 +69,29 @@ namespace TTSWPF
             return -1;
         }
     }
+    public class SelectableOutputDevice
+    {
+        public SelectableOutputDevice(string name, int index, bool selected)
+        {
+            Name = name;
+            Index = index;
+            IsSelected = selected;
+        }
+
+        public string Name { get; set; }
+        public bool IsSelected { get; set; }
+        public int Index { get; set; }
+        public override string ToString()
+        {
+            return Name;
+        }
+    }
     public partial class MainWindow : Window
     {
         private readonly Dictionary<Key, HotkeyTTS> _hotKeys = new Dictionary<Key, HotkeyTTS>();
         private HotKey _focus;
         private Key _k;
-        private readonly List<int> _outputDevices;
+        private List<int> _outputDevices;
 
         public MainWindow()
         {
@@ -62,24 +100,26 @@ namespace TTSWPF
             {
                 var speechEngine = new SpeechSynthesizer();
 
-                var harmony = new Harmony("com.company.project.product");
+                var harmony = new Harmony("ttswpf.12354.org");
                 harmony.PatchAll();
 
                 InitializeComponent();
+                var enumDevices = WaveOutDevice.EnumerateDevices().ToList();
                 if (File.Exists("output.txt"))
                 {
-                    var devices = File.ReadAllLines("output.txt").Select(s => s.Substring(0, 31));
-                    var enumDevices = WaveOutDevice.EnumerateDevices().ToList();
+                    var devices = File.ReadAllLines("output.txt").Select(s => s.SafeSubstring(0, 31));
+
                     _outputDevices = devices.Select(dev => enumDevices.IndexOf(waveout =>
                             waveout.Name.ToLowerInvariant().Contains(dev.ToLowerInvariant())))
                         .Where(dev => dev != -1).ToList();
                 }
                 else
                 {
-                    MessageBox.Show("output.txt not found. Check output.example.txt for an example.");
-                    Environment.Exit(0);
+                    
                     _outputDevices = new List<int>();
                 }
+                _observableOutputDevices = new ObservableCollection<SelectableOutputDevice>(enumDevices.Select((device, index) => new SelectableOutputDevice(device.Name, index, _outputDevices.Contains(index))));
+                selectedOutputDevices.ItemsSource = _observableOutputDevices;
 
             }
             catch (Exception ex)
@@ -88,7 +128,11 @@ namespace TTSWPF
             }
 
         }
-
+        private void CheckBox_Checked(object sender, RoutedEventArgs e)
+        {
+            _outputDevices = _observableOutputDevices.Where(dev => dev.IsSelected).Select(dev => dev.Index).ToList();
+            File.WriteAllText("output.txt", string.Join(Environment.NewLine, _observableOutputDevices.Where(dev => dev.IsSelected).Select(dev => dev.Name)));
+        }
 
         private void HotkeyKey_PreviewKeyDown(object sender, KeyEventArgs e)
         {
@@ -128,10 +172,17 @@ namespace TTSWPF
         }
         private bool _isSpeaking = false;
         private string _isSpeakingText = "";
+        private ObservableCollection<SelectableOutputDevice> _observableOutputDevices;
+
         private void Speak(string text)
         {
             if (string.IsNullOrWhiteSpace(text))
                 return;
+            if(_outputDevices.Count == 0)
+            {
+                MessageBox.Show("No audio output device selected. Dont forget to select an output device.");
+                return;
+            }
             try
             {
                 if (_isSpeaking && text == _isSpeakingText)
@@ -225,5 +276,7 @@ namespace TTSWPF
             playBox.Focus();
             playBox.Clear();
         }
+
+
     }
 }
