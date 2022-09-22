@@ -168,7 +168,7 @@ namespace TTSWPF
         {
             hotkeyList.Clear();
             foreach (var hotkeyTts in _hotKeys)
-                hotkeyList.Text += $"{hotkeyTts.Value.Modifiers} {hotkeyTts.Key} : {hotkeyTts.Value.Text}\n";
+                hotkeyList.Text += $"{(hotkeyTts.Value.Modifiers == ModifierKeys.None ? "" : hotkeyTts.Value.Modifiers.ToString())} {hotkeyTts.Key} : {hotkeyTts.Value.Text}\n";
         }
         private bool _isSpeaking = false;
         private string _isSpeakingText = "";
